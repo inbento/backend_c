@@ -14,12 +14,11 @@ public static class Program
         }
 
         // Получаем переменную среды, отвечающую за окружение
-        var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ??
-                              throw new InvalidOperationException("ASPNETCORE_ENVIRONMENT in not set");
+        var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Development";
 
         // собираем конфигурацию на основании окружения
         var config = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
+            .SetBasePath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Migrations"))
             .AddJsonFile($"appsettings.{environmentName}.json")
             .Build();
 

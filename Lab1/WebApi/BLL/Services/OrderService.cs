@@ -1,12 +1,18 @@
+using Microsoft.Extensions.Options;
+using UniverseLabs.Messages;
 using WebApi.BLL.Models;
+using WebApi.Config;
 using WebApi.DAL;
 using WebApi.DAL.Interfaces;
 using WebApi.DAL.Models;
 
 namespace WebApi.BLL.Services;
 
-public class OrderService(UnitOfWork unitOfWork, IOrderRepository orderRepository, IOrderItemRepository orderItemRepository)
+public class OrderService(UnitOfWork unitOfWork, IOrderRepository orderRepository, IOrderItemRepository orderItemRepository, RabbitMqService rabbitMqService, IOptions<RabbitMqSettings> settings)
 {
+    private readonly RabbitMqService _rabbitMqService = rabbitMqService;
+    private readonly IOptions<RabbitMqSettings> _settings = settings;
+
     /// <summary>
     /// Метод создания заказов
     /// </summary>
@@ -53,7 +59,34 @@ public class OrderService(UnitOfWork unitOfWork, IOrderRepository orderRepositor
         
             var orderItemLookup = orderItems.ToLookup(x => x.OrderId);
         
-            return Map(ordersToInsert, orderItemLookup);
+            var result = Map(ordersToInsert, orderItemLookup);
+
+            var messages = result.Select(o => new OrderCreatedMessage
+            {
+                Id = o.Id,
+                CustomerId = o.CustomerId,
+                DeliveryAddress = o.DeliveryAddress,
+                TotalPriceCents = o.TotalPriceCents,
+                TotalPriceCurrency = o.TotalPriceCurrency,
+                CreatedAt = o.CreatedAt,
+                UpdatedAt = o.UpdatedAt,
+                OrderItems = o.OrderItems.Select(oi => new UniverseLabs.Messages.OrderItemUnit
+                {
+                    Id = oi.Id,
+                    ProductId = oi.ProductId,
+                    Quantity = oi.Quantity,
+                    ProductTitle = oi.ProductTitle,
+                    ProductUrl = oi.ProductUrl,
+                    PriceCents = oi.PriceCents,
+                    PriceCurrency = oi.PriceCurrency,
+                    CreatedAt = oi.CreatedAt,
+                    UpdatedAt = oi.UpdatedAt
+                }).ToArray()
+            });
+
+            await _rabbitMqService.Publish(messages, _settings.Value.OrderCreatedQueue, token);
+
+            return result;
         }
         catch (Exception e) 
         {
@@ -105,7 +138,7 @@ public class OrderService(UnitOfWork unitOfWork, IOrderRepository orderRepositor
             TotalPriceCurrency = x.TotalPriceCurrency,
             CreatedAt = x.CreatedAt,
             UpdatedAt = x.UpdatedAt,
-            OrderItems = orderItemLookup?[x.Id].Select(o => new OrderItemUnit
+            OrderItems = orderItemLookup?[x.Id].Select(o => new WebApi.BLL.Models.OrderItemUnit
             {
                 Id = o.Id,
                 OrderId = o.OrderId,

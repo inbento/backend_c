@@ -66,7 +66,6 @@ public class V1CreateOrderRequestValidator: AbstractValidator<V1CreateOrderReque
         }
     }
     
-    // тут все просто
     public class OrderItemValidator: AbstractValidator<V1CreateOrderRequest.OrderItem>
     {
         public OrderItemValidator()

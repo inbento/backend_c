@@ -26,7 +26,7 @@ public class OrderController(OrderService orderService, ValidatorFactory validat
             DeliveryAddress = x.DeliveryAddress,
             TotalPriceCents = x.TotalPriceCents,
             TotalPriceCurrency = x.TotalPriceCurrency,
-            OrderItems = x.OrderItems.Select(p => new OrderItemUnit
+            OrderItems = x.OrderItems.Select(p => new WebApi.BLL.Models.OrderItemUnit
             {
                 ProductId = p.ProductId,
                 Quantity = p.Quantity,
