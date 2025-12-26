@@ -1,6 +1,4 @@
-using FluentMigrator.Runner.VersionTableInfo;
-
-namespace Migrations;
+﻿using FluentMigrator.Runner.VersionTableInfo;
 
 public class VersionTable : IVersionTableMetaData
 {

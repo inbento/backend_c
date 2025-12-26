@@ -1,0 +1,27 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+COPY ["Migrations/Migrations.csproj", "Migrations/"]
+COPY ["Common/Common.csproj", "Common/"]
+COPY ["Models/Models.csproj", "Models/"]
+
+WORKDIR "/src/Migrations"
+RUN dotnet restore "Migrations.csproj"
+
+COPY . .
+
+WORKDIR "/src/Migrations"
+RUN dotnet build "Migrations.csproj" -c Release --no-restore
+RUN dotnet publish "Migrations.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/runtime:9.0
+WORKDIR /app
+
+# ”становите переменные окружени€ по умолчанию
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_ENVIRONMENT=Production
+
+COPY --from=build /app/publish .
+
+# ≈сли нужно передавать аргументы
+ENTRYPOINT ["dotnet", "Migrations.dll"]

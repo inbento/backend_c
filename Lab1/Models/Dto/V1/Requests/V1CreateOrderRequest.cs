@@ -1,34 +1,41 @@
-namespace Models.Dto.V1.Requests;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-public class V1CreateOrderRequest
+namespace Models.Dto.V1.Requests
 {
-    public Order[] Orders { get; set; }
-    
-    public class Order
+    public class V1CreateOrderRequest
     {
-        public long CustomerId { get; set; }
+        public Order[] Orders { get; set; }
 
-        public string DeliveryAddress { get; set; }
+        public class Order
+        {
+            public long CustomerId { get; set; }
 
-        public long TotalPriceCents { get; set; }
+            public string DeliveryAddress { get; set; }
 
-        public string TotalPriceCurrency { get; set; }
+            public long TotalPriceCents { get; set; }
 
-        public OrderItem[] OrderItems { get; set; }
-    }
-    
-    public class OrderItem
-    {
-        public long ProductId { get; set; }
+            public string TotalPriceCurrency { get; set; }
 
-        public int Quantity { get; set; }
+            public OrderItem[] OrderItems { get; set; }
+        }
 
-        public string ProductTitle { get; set; }
+        public class OrderItem
+        {
+            public long ProductId { get; set; }
 
-        public string ProductUrl { get; set; }
+            public int Quantity { get; set; }
 
-        public long PriceCents { get; set; }
+            public string ProductTitle { get; set; }
 
-        public string PriceCurrency { get; set; }
+            public string ProductUrl { get; set; }
+
+            public long PriceCents { get; set; }
+
+            public string PriceCurrency { get; set; }
+        }
     }
 }

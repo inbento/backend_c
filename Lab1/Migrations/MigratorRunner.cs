@@ -1,9 +1,7 @@
-using FluentMigrator.Runner;
+﻿using FluentMigrator.Runner;
 using FluentMigrator.Runner.VersionTableInfo;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-
-namespace Migrations;
 
 public class MigratorRunner(string connectionString)
 {
@@ -18,7 +16,7 @@ public class MigratorRunner(string connectionString)
     private IServiceProvider CreateServices()
     {
         Console.WriteLine(typeof(MigratorRunner).Assembly.FullName);
-        
+
         // Зависимости
         // Хотим fluentMigrator с постгресом
         // и чтобы искал миграции в текущем проекте.

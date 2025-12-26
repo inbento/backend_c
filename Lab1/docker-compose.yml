@@ -1,26 +1,44 @@
-services:
+﻿services:
   postgres:
     image: postgres
+    container_name: postgres
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123
       - POSTGRES_DB=postgres
-      - POSTGRES_HOST_AUTH_METHOD=md5
-      - POSTGRES_INITDB_ARGS=--auth=md5
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     volumes:
-      - pgdata:/var/lib/postgresql
-      - ./initdb.d:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
   
   pgbouncer:
     image: edoburu/pgbouncer:latest
+    container_name: pgbouncer
     environment:
+      # CRITICAL: Use DB_* variables, not POSTGRESQL_*
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=user
-      - DB_PASSWORD=mypassword
+      - DB_USER=postgres
+      - DB_PASSWORD=123
       - ADMIN_USERS=postgres,admin
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=10000
+      - DEFAULT_POOL_SIZE=16
+      - AUTH_TYPE=scram-sha-256
     ports:
       - "15432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
   
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -30,6 +48,66 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  lab1-service:
+    build:
+      context: .
+      dockerfile: Lab1/Dockerfile
+    container_name: lab1-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # РћСЃРЅРѕРІРЅРѕРµ РїСЂРёР»РѕР¶РµРЅРёРµ РёСЃРїРѕР»СЊР·СѓРµС‚ pgbouncer
+      - DbSettings__ConnectionString=Host=pgbouncer;Port=5432;Database=postgres;Username=postgres;Password=123;Pooling=true;LoadTableComposites=true;No Reset On Close=true;
+      # РњРёРіСЂР°С†РёРё вЂ” РЅР°РїСЂСЏРјСѓСЋ Рє postgres (Р±РµР· pgbouncer)
+      - DbSettings__MigrationConnectionString=Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=123
+      - MIGRATION_CONNECTION=Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=123
+      - RabbitMqSettings__HostName=rabbitmq
+      - RabbitMqSettings__Port=5672
+      - RabbitMqSettings__UserName=guest
+      - RabbitMqSettings__Password=guest
+      - RabbitMqSettings__OrderCreatedQueue=order.created.queue
+    ports:
+      - "8080:8080"
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  
+  consumer:
+    build:
+      context: .
+      dockerfile: Consumer/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMqSettings__HostName=rabbitmq
+      - RabbitMqSettings__Port=5672
+      - RabbitMqSettings__OrderCreatedQueue=order.created.queue
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      lab1-service:
+        condition: service_started
+      pgbouncer:
+        condition: service_started
 
 volumes:
   pgdata:

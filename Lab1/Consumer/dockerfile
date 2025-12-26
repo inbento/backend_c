@@ -1,0 +1,25 @@
+﻿FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Копируем ВСЕ csproj файлы
+COPY ["Consumer/Consumer.csproj", "Consumer/"]
+COPY ["Lab1/Lab1.csproj", "Lab1/"]
+COPY ["Common/Common.csproj", "Common/"]
+COPY ["Models/Models.csproj", "Models/"]
+COPY ["Messages/Messages.csproj", "Messages/"]
+COPY ["Migrations/Migrations.csproj", "Migrations/"]
+
+# Восстанавливаем Consumer
+RUN dotnet restore "Consumer/Consumer.csproj"
+
+# Копируем ВСЕ исходники
+COPY . .
+
+# Публикуем
+WORKDIR "/src/Consumer"
+RUN dotnet publish "Consumer.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "Consumer.dll"]

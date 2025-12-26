@@ -1,7 +1,7 @@
-using FluentMigrator;
+﻿using FluentMigrator;
 
 [Migration(1)]
-public class InitOrderTable: Migration
+public class InitOrderTable : Migration
 {
     public override void Up()
     {
@@ -56,6 +56,7 @@ public class InitOrderTable: Migration
                 updated_at timestamp with time zone
             );
         ";
+
         Execute.Sql(sql);
     }
 
