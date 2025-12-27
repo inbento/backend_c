@@ -5,6 +5,9 @@
 		<TargetFramework>net9.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<!-- Disable default SDK recursive Compile items so files from sibling folders
+		     (copied into the Docker build context) are not compiled into this project -->
+		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -16,6 +19,14 @@
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
 		<PackageReference Include="Npgsql" Version="9.0.3" />
+	</ItemGroup>
+
+	<!-- Explicitly include only the migration project's source files -->
+	<ItemGroup>
+		<Compile Include="Program.cs" />
+		<Compile Include="MigratorRunner.cs" />
+		<Compile Include="VersionTable.cs" />
+		<Compile Include="Scripts\*.cs" />
 	</ItemGroup>
 
 </Project>

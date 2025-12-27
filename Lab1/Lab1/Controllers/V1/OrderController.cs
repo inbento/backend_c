@@ -1,7 +1,10 @@
 ﻿using FluentValidation;
 using Lab1.BBL.Models;
 using Lab1.BBL.Services;
+using Lab1.BBL.Models;
+using Lab1.BBL.Services;
 using Microsoft.AspNetCore.Mvc;
+using Models.Dto.V1;
 using Models.Dto.V1.Requests;
 using Models.Dto.V1.Responses;
 
@@ -70,6 +73,13 @@ namespace Lab1.Controllers.V1
             });
         }
 
+        [HttpPost("update-status")]
+        public async Task<ActionResult<V1UpdateOrderStatusResponse>> V1UpdateOrdersStatus([FromBody] V1UpdateOrdersStatusRequest request, CancellationToken token)
+        {
+            await orderService.UpdateOrdersStatus(request.OrderIds, request.NewStatus, token);
+            return Ok(new V1UpdateOrderStatusResponse());
+        }
+
         private Models.Dto.Common.OrderUnit[] Map(OrderUnit[] orders)
         {
 
@@ -104,4 +114,3 @@ namespace Lab1.Controllers.V1
         }
     }
 }
-

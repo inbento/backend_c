@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Messages
 {
-    public class OrderCreatedMessage
+    public class OrderCreatedMessage : BaseMessage
     {
         public long Id { get; set; }
 
@@ -22,6 +22,10 @@ namespace Messages
 
         public DateTimeOffset UpdatedAt { get; set; }
 
-        //public OrderItemUnit[] OrderItems { get; set; }
+        public string Status { get; set; }
+
+        public OmsOrderItemMessage[] OrderItems { get; set; } = Array.Empty<OmsOrderItemMessage>();
+
+        public override string RoutingKey => "order.created";
     }
 }

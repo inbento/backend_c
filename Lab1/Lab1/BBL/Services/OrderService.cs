@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 using Lab1.Config;
 using Lab1.Services;
 using Microsoft.Extensions.Logging;
+using System.Collections.Immutable;
+using Messages;
 
 namespace Lab1.BBL.Services
 {
@@ -56,6 +58,7 @@ namespace Lab1.BBL.Services
                         DeliveryAddress = orderUnit.DeliveryAddress,
                         TotalPriceCents = orderUnit.TotalPriceCents,
                         TotalPriceCurrency = orderUnit.TotalPriceCurrency,
+                        Status = orderUnit.Status ?? "created", // Added
                         CreatedAt = now,
                         UpdatedAt = now
                     }).ToArray();
@@ -107,6 +110,7 @@ namespace Lab1.BBL.Services
                             DeliveryAddress = savedOrder.DeliveryAddress,
                             TotalPriceCents = savedOrder.TotalPriceCents,
                             TotalPriceCurrency = savedOrder.TotalPriceCurrency,
+                            Status = savedOrder.Status, // Added
                             CreatedAt = savedOrder.CreatedAt,
                             UpdatedAt = savedOrder.UpdatedAt,
                             OrderItems = orderItems.Select(item => new OrderItemUnit
@@ -139,15 +143,16 @@ namespace Lab1.BBL.Services
             // 5. После успешного commit отправляем в RabbitMQ (вне транзакции)
             try
             {
-                var messages = resultOrders.Select(order => new OmsOrderCreatedMessage
+                var messages = resultOrders.Select(order => new Messages.OrderCreatedMessage
                 {
                     Id = order.Id,
                     CustomerId = order.CustomerId,
                     DeliveryAddress = order.DeliveryAddress,
                     TotalPriceCents = order.TotalPriceCents,
                     TotalPriceCurrency = order.TotalPriceCurrency,
+                    Status = order.Status, // Added
                     CreatedAt = order.CreatedAt,
-                    OrderItems = order.OrderItems.Select(item => new OmsOrderItemMessage
+                    OrderItems = order.OrderItems.Select(item => new Messages.OmsOrderItemMessage
                     {
                         Id = item.Id,
                         OrderId = item.OrderId,
@@ -168,7 +173,7 @@ namespace Lab1.BBL.Services
                 }
 
                 // 6. Отправляем сообщения в RabbitMQ
-                await _rabbitMqService.Publish(messages, _rabbitMqSettings.OrderCreatedQueue, token);
+                await _rabbitMqService.Publish(messages, token);
                 _logger.LogInformation("Successfully published messages to RabbitMQ.");
             }
             catch (Exception ex)
@@ -213,6 +218,59 @@ namespace Lab1.BBL.Services
             return Map(orders, orderItemLookup);
         }
 
+        public async Task UpdateOrdersStatus(long[] orderIds, string newStatus, CancellationToken token)
+        {
+            _logger.LogInformation("UpdateOrdersStatus called for {OrderIdsCount} orders with new status {NewStatus}", orderIds.Length, newStatus);
+
+            var ordersToUpdate = (await _orderRepository.Query(new QueryOrdersDalModel { Ids = orderIds }, token)).ToList();
+
+            if (ordersToUpdate.Count == 0)
+            {
+                _logger.LogInformation("No orders found for the given OrderIds. Returning without updates.");
+                return;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            List<long> updatedOrderIds = new List<long>();
+
+            foreach (var order in ordersToUpdate)
+            {
+                // Простейшая стейт-машина
+                if (order.Status == "created" && newStatus == "completed")
+                {
+                    throw new InvalidOperationException($"Cannot change order {order.Id} status from '{order.Status}' to '{newStatus}'.");
+                }
+                // Добавьте другие правила переходов статусов здесь, если необходимо
+
+                order.Status = newStatus;
+                order.UpdatedAt = now;
+                updatedOrderIds.Add(order.Id);
+            }
+
+            await _orderRepository.BulkUpdate(ordersToUpdate.ToArray(), token);
+            _logger.LogInformation("Successfully updated statuses for {UpdatedOrderCount} orders in DB.", updatedOrderIds.Count);
+
+            // Публикация события изменения статуса в RabbitMQ
+            try
+            {
+                var messages = ordersToUpdate.Select(order => new Messages.OmsOrderStatusChangedMessage 
+                {
+                    OrderId = order.Id,
+                    OrderStatus = order.Status,
+                    CustomerId = order.CustomerId, // Populated from OrderDal
+                    OrderItemId = 1 // Default to 1 as it's a general order status change, not item specific
+                }).ToArray();
+
+                _logger.LogInformation("Preparing to publish {MessagesCount} order status changed messages to RabbitMQ.", messages.Length);
+                await _rabbitMqService.Publish(messages, token); 
+                _logger.LogInformation("Successfully published order status changed messages to RabbitMQ.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish order status changed messages to RabbitMQ.");
+            }
+        }
+
         private OrderUnit[] Map(V1OrderDal[] orders, ILookup<long, V1OrderItemDal> orderItemLookup = null)
         {
             return orders.Select(x => new OrderUnit
@@ -222,6 +280,7 @@ namespace Lab1.BBL.Services
                 DeliveryAddress = x.DeliveryAddress,
                 TotalPriceCents = x.TotalPriceCents,
                 TotalPriceCurrency = x.TotalPriceCurrency,
+                Status = x.Status, // Added
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt,
                 OrderItems = orderItemLookup?[x.Id].Select(o => new OrderItemUnit

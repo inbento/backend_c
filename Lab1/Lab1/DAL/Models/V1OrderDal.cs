@@ -1,16 +1,21 @@
-﻿public class V1OrderDal
+﻿namespace Lab1.DAL.Models
 {
-    public long Id { get; set; }
+    public class V1OrderDal
+    {
+        public long Id { get; set; }
 
-    public long CustomerId { get; set; }
+        public long CustomerId { get; set; }
 
-    public string DeliveryAddress { get; set; }
+        public string DeliveryAddress { get; set; }
 
-    public long TotalPriceCents { get; set; }
+        public long TotalPriceCents { get; set; }
 
-    public string TotalPriceCurrency { get; set; }
+        public string TotalPriceCurrency { get; set; }
 
-    public DateTimeOffset CreatedAt { get; set; }
+        public string Status { get; set; } = "created";
 
-    public DateTimeOffset UpdatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+
+        public DateTimeOffset UpdatedAt { get; set; }
+    }
 }

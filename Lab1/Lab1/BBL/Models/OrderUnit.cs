@@ -17,6 +17,7 @@
         public DateTimeOffset UpdatedAt { get; set; }
 
         public OrderItemUnit[] OrderItems { get; set; }
+
+        public string Status { get; set; } = "created";
     }
 }
-

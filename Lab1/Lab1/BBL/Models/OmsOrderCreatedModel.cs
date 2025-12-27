@@ -1,6 +1,6 @@
 ﻿namespace Lab1.BBL.Models
 {
-    public class OmsOrderCreatedMessage
+    public class OmsOrderCreatedModel
     {
         public long Id { get; set; }
         public long CustomerId { get; set; }
@@ -8,10 +8,10 @@
         public long TotalPriceCents { get; set; }
         public string TotalPriceCurrency { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
-        public OmsOrderItemMessage[] OrderItems { get; set; } = Array.Empty<OmsOrderItemMessage>();
+        public OmsOrderItemModel[] OrderItems { get; set; } = Array.Empty<OmsOrderItemModel>();
     }
 
-    public class OmsOrderItemMessage
+    public class OmsOrderItemModel
     {
         public long Id { get; set; }
         public long OrderId { get; set; }
@@ -24,4 +24,3 @@
         public DateTimeOffset CreatedAt { get; set; }
     }
 }
-

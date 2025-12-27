@@ -12,5 +12,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Lab1\Lab1.csproj" />
+		<ProjectReference Include="..\Messages\Messages.csproj" />
 	</ItemGroup>
 </Project>

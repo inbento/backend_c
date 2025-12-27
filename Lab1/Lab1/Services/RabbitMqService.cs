@@ -5,44 +5,105 @@ using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Messages;
 
 namespace Lab1.Services
 {
-    public class RabbitMqService(IOptions<RabbitMqSettings> settings, ILogger<RabbitMqService> logger)
+    public class RabbitMqService(IOptions<RabbitMqSettings> settings) : IDisposable
     {
-        private readonly ConnectionFactory _factory = new() { HostName = settings.Value.HostName, Port = settings.Value.Port };
-        private readonly ILogger<RabbitMqService> _logger = logger;
-
-        public async Task Publish<T>(IEnumerable<T> enumerable, string queue, CancellationToken token)
+        private IConnection? _connection;
+        private IChannel? _channel;
+        
+        public async Task Publish<T>(IEnumerable<T> enumerable, CancellationToken token)
+            where T : BaseMessage
         {
-            await using var connection = await _factory.CreateConnectionAsync(token);
-            await using var channel = await connection.CreateChannelAsync(cancellationToken: token);
-            await channel.QueueDeclareAsync(
-                queue: queue,
-                durable: false,
+            var channel = await Configure(token);
+
+            foreach (var message in enumerable)
+            {
+                var messageStr = message.ToJson();
+                var body = Encoding.UTF8.GetBytes(messageStr);
+                await channel.BasicPublishAsync(
+                    exchange: settings.Value.Exchange,
+                    routingKey: message.RoutingKey,
+                    body: body,
+                    cancellationToken: token);
+            }
+        }
+
+        private async Task<IChannel> Configure(CancellationToken token)
+        {
+            if (_channel?.IsOpen ?? false)
+            {
+                return _channel;
+            }
+
+            _connection = await new ConnectionFactory
+                {
+                    HostName = settings.Value.HostName,
+                    Port = settings.Value.Port
+                }
+                .CreateConnectionAsync(token);
+
+            _channel = await _connection.CreateChannelAsync(cancellationToken: token);
+
+            // Declare Dead Letter Exchange and Queue
+            await _channel.ExchangeDeclareAsync(
+                exchange: settings.Value.DeadLetterExchange,
+                type: "topic",
+                durable: true,
+                autoDelete: false,
+                arguments: null,
+                cancellationToken: token);
+
+            await _channel.QueueDeclareAsync(
+                queue: settings.Value.DeadLetterQueue,
+                durable: true,
                 exclusive: false,
                 autoDelete: false,
                 arguments: null,
                 cancellationToken: token);
 
-            var jsonOptions = new JsonSerializerOptions
+            await _channel.QueueBindAsync(
+                queue: settings.Value.DeadLetterQueue,
+                exchange: settings.Value.DeadLetterExchange,
+                routingKey: settings.Value.DeadLetterRoutingKey,
+                arguments: null,
+                cancellationToken: token);
+
+            // Arguments for the main queue to direct failed messages to DLX
+            var queueArguments = new Dictionary<string, object>
             {
-                PropertyNamingPolicy = null, // Изменено на null для использования PascalCase
-                WriteIndented = false 
+                {"x-dead-letter-exchange", settings.Value.DeadLetterExchange}
             };
 
-            foreach (var message in enumerable)
+            await _channel.ExchangeDeclareAsync(exchange: settings.Value.Exchange, type: "topic", durable: true, autoDelete: false, arguments: null, cancellationToken: token);
+
+            foreach (var mapping in settings.Value.ExchangeMappings)
             {
-                var messageStr = JsonSerializer.Serialize(message, jsonOptions);
-                _logger.LogInformation("Publishing message to RabbitMQ. Queue: {Queue}, Message: {Message}", queue, messageStr);
-                var body = Encoding.UTF8.GetBytes(messageStr);
-                await channel.BasicPublishAsync(
-                    exchange: string.Empty,
-                    routingKey: queue,
-                    body: body,
+                await _channel.QueueDeclareAsync(
+                    queue: mapping.Queue,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: queueArguments, // Added DLX arguments
+                    cancellationToken: token);
+
+                await _channel.QueueBindAsync(
+                    queue: mapping.Queue,
+                    exchange: settings.Value.Exchange,
+                    routingKey: mapping.RoutingKeyPattern,
+                    arguments: null,
                     cancellationToken: token);
             }
+
+            return _channel;
+        }
+
+        public void Dispose()
+        {
+            _channel?.Dispose();
+            _connection?.Dispose();
         }
     }
 }
-

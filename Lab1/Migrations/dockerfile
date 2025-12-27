@@ -8,7 +8,10 @@ COPY ["Models/Models.csproj", "Models/"]
 WORKDIR "/src/Migrations"
 RUN dotnet restore "Migrations.csproj"
 
-COPY . .
+# Copy only required source files for the Migrations project (avoid copying whole repo)
+# Copy individual source files and the Scripts folder into the container
+COPY Migrations/Program.cs Migrations/MigratorRunner.cs Migrations/VersionTable.cs /src/Migrations/
+COPY Migrations/Scripts/ /src/Migrations/Scripts/
 
 WORKDIR "/src/Migrations"
 RUN dotnet build "Migrations.csproj" -c Release --no-restore
@@ -17,11 +20,9 @@ RUN dotnet publish "Migrations.csproj" -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/runtime:9.0
 WORKDIR /app
 
-# ”становите переменные окружени€ по умолчанию
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_ENVIRONMENT=Production
 
 COPY --from=build /app/publish .
 
-# ≈сли нужно передавать аргументы
 ENTRYPOINT ["dotnet", "Migrations.dll"]

@@ -18,9 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\\Common\\Common.csproj" />
-    <ProjectReference Include="..\\Migrations\\Migrations.csproj" />
-    <ProjectReference Include="..\\Models\\Models.csproj" />
+    <ProjectReference Include="..\Common\Common.csproj" />
+    <ProjectReference Include="..\Migrations\Migrations.csproj" />
+    <ProjectReference Include="..\Models\Models.csproj" />
+    <ProjectReference Include="..\Messages\Messages.csproj" />
   </ItemGroup>
 
 </Project>

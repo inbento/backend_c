@@ -1,24 +1,19 @@
 ﻿FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Копируем csproj файлы
 COPY ["Lab1/Lab1.csproj", "Lab1/"]
 COPY ["Common/Common.csproj", "Common/"]
 COPY ["Models/Models.csproj", "Models/"]
 COPY ["Migrations/Migrations.csproj", "Migrations/"]
 
-# Восстанавливаем зависимости
 RUN dotnet restore "Lab1/Lab1.csproj"
 
-# Копируем ВСЕ исходники
 COPY . .
 
-# Публикуем (хотя это библиотека, можно просто собрать)
 WORKDIR "/src/Lab1"
 RUN dotnet publish "Lab1.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build /app/publish .
-# Lab1 - это библиотека, но может иметь точку входа для тестирования
 ENTRYPOINT ["dotnet", "Lab1.dll"]

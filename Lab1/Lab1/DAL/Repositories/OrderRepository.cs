@@ -50,6 +50,22 @@ public class OrderRepository(UnitOfWork unitOfWork) : IOrderRepository
         return res.ToArray();
     }
 
+    public async Task BulkUpdate(V1OrderDal[] model, CancellationToken token)
+    {
+        var sql = @"
+            update orders as o
+            set
+                status = u.status,
+                updated_at = u.updated_at
+            from unnest(@Orders) as u
+            where o.id = u.id;
+        ";
+       
+        var conn = await unitOfWork.GetConnection(token);
+        await conn.ExecuteAsync(new CommandDefinition(
+            sql, new { Orders = model }, cancellationToken: token));
+    }
+
     public async Task<V1OrderDal[]> Query(QueryOrdersDalModel model, CancellationToken token)
     {
         var sql = new StringBuilder(@"
@@ -108,4 +124,3 @@ public class OrderRepository(UnitOfWork unitOfWork) : IOrderRepository
         return res.ToArray();
     }
 }
-
